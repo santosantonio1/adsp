@@ -2,7 +2,7 @@ close all;
 clear all;
 clc;
 
-file = 'fahhh.wav';
+file = 'all_star.wav';
 
 [y,Fs] = audioread(file);
 
