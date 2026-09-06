@@ -1,0 +1,176 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazil]{babel}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{siunitx}
+\usepackage{float}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+\usepackage{fancyvrb}
+
+\sisetup{output-decimal-marker={,}}
+\graphicspath{{img/}}
+
+\lstset{
+  basicstyle=\ttfamily\scriptsize,
+  keywordstyle=\color{blue!60!black},
+  commentstyle=\color{green!40!black},
+  stringstyle=\color{red!60!black},
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  breaklines=true,
+  frame=single,
+  language=Matlab,
+  showstringspaces=false,
+  captionpos=b
+}
+
+\title{Aplicações de Processamento Digital de Sinais -- 4456S-04\\[2mm]
+\large Prática 4: Projeto de Filtros FIR}
+\author{Antônio Vinicius Corrêa dos Santos}
+\date{06/09/2026}
+
+\begin{document}
+
+\maketitle
+
+Sinal: \texttt{all\_star.wav}, $F_a = \SI{44100}{\hertz}$, $F_a/2 = \SI{22050}{\hertz}$.
+
+\section{Espectro de frequências de $x(n)$}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.68\textwidth]{spectrum_x.png}
+\caption{Espectro de magnitude de $x(n)$.}
+\end{figure}
+
+Divisão adotada para os filtros:
+
+\begin{center}
+\begin{BVerbatim}[fontsize=\small]
+0               600               7800           12500
+|----------------|-----------------|---------------|-----------------> f(Hz)
+   passa-baixas     rejeita-banda     passa-banda     passa-altas
+\end{BVerbatim}
+\end{center}
+
+\section{Projeto dos filtros FIR}
+
+\textbf{Aproximação:} método das janelas, via \texttt{fir1}.
+
+\textbf{Janela:} Hanning 
+
+\begin{table}[H]
+\centering
+\caption{Especificações e resultados de projeto.}
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Filtro} & \textbf{Passagem [Hz]} & \textbf{Rejeição [Hz]} &
+$\Delta f$ \textbf{[Hz]} & $f_c$ \textbf{[Hz]} & $M$ \\
+\midrule
+Passa-baixas   & $f_p=600$       & $f_s=900$            & 300            & 750              & 589 \\
+Passa-altas    & $f_p=12500$     & $f_s=12000$          & 500            & 12250            & 354 \\
+Passa-banda    & $7800$--$12500$ & $7000$ e $13928{,}6$ & 800 / 1428{,}6 & 7400 e 13214{,}3 & 221 \\
+Rejeita-banda  & $<300$ e $>8100$& $600$--$7800$        & 300 / 300      & 450 e 7950       & 590 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Respostas em frequência sobrepostas}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.72\textwidth]{freq_responses.png}
+\caption{Respostas em frequência dos quatro filtros FIR.}
+\end{figure}
+
+\section{Espectros de saída e validação}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.48\textwidth]{spectrum_y1.png}
+\hfill
+\includegraphics[width=0.48\textwidth]{spectrum_y2.png}\\[2mm]
+\includegraphics[width=0.48\textwidth]{spectrum_y3.png}
+\hfill
+\includegraphics[width=0.48\textwidth]{spectrum_y4.png}
+\caption{Espectros de $y_1$ (passa-baixas), $y_2$ (passa-altas), $y_3$ (passa-banda) e
+$y_4$ (rejeita-banda).}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\caption{Banda prevista pelas frequências de corte de projeto $\times$ banda observada.}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Saída} & $f_c$ \textbf{de projeto [Hz]} & \textbf{Banda prevista [Hz]} & \textbf{Banda observada [Hz]} \\
+\midrule
+$y_1$ & 750             & $0$--$750$       & $0$--$\approx 800$ \\
+$y_2$ & 12250           & $>12250$         & $\approx 12250$--$16000$ \\
+$y_3$ & 7400 e 13214    & $7400$--$13214$  & $\approx 7400$--$13500$ \\
+$y_4$ & 450 e 7950      & $<450$ e $>7950$ & $0$--$\approx 600$ e $\approx 7900$--$16000$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Validação:
+
+\begin{itemize}\itemsep0pt
+  \item As bordas observadas coincidem com os $f_c$ de projeto dentro da largura de
+        transição especificada ($\Delta f$ de 300 a \SI{1428}{\hertz}), que é a resolução
+        com que a borda pode ser localizada no gráfico.
+  \item O limite superior de \SI{16}{\kilo\hertz} em $y_2$, $y_3$ e $y_4$ é imposto pelo
+        conteúdo de $x(n)$, que já é nulo acima dessa frequência, e não pelos filtros.
+  \item O pico de $y_1$ e de $y_4$ na região de baixa frequência é
+        $\approx 4{,}3\times10^4$, idêntico ao pico de $x(n)$, confirmando ganho unitário
+        (\SI{0}{\decibel}) na banda passante. O mesmo vale para $y_3$
+        ($\approx 9{,}6\times10^3$ contra $\approx 9{,}7\times10^3$ em $x(n)$ na mesma faixa).
+  \item Nas bandas de rejeição a magnitude residual é da ordem de $10^{-2}$ do pico,
+        compatível com os \SI{44}{\decibel} de atenuação da janela de Hanning. Em $y_4$ a
+        faixa \SI{600}{}--\SI{7800}{\hertz} é visivelmente zerada, e em $y_1$ não há
+        conteúdo acima de \SI{1}{\kilo\hertz}.
+\end{itemize}
+
+\section{Atraso de grupo e polos e zeros}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.49\textwidth]{filter_1_pz.png}
+\hfill
+\includegraphics[width=0.49\textwidth]{filter_2_pz.png}\\[2mm]
+\includegraphics[width=0.49\textwidth]{filter_3_pz.png}
+\hfill
+\includegraphics[width=0.49\textwidth]{filter_4_pz.png}
+\caption{Atraso de grupo e diagrama de polos e zeros: passa-baixas, passa-altas,
+passa-banda e rejeita-banda.}
+\end{figure}
+
+Atraso de grupo constante e igual a $M/2$ nos quatro filtros, confirmando fase linear
+($h(n)=h(M-n)$); as descontinuidades pontuais ocorrem apenas onde
+$|H(e^{j\omega})|\approx 0$ e não representam distorção real. 
+
+\section{Sistema completo e teste dos ganhos}
+
+Implementado $y(n) = \sum_{k=1}^{4} G_k y_k(n)$ conforme a Figura~1 do enunciado.
+Comutando cada $G_k$ entre ``0'' e ``1'':
+
+\begin{itemize}\itemsep0pt
+  \item $G_1$ (passa-baixas): som abafado, vocal ainda inteligível, instrumentos misturados.
+  \item $G_2$ (passa-altas): amplitude baixa e agudo; mantém o ritmo, sem discernir vocal ou instrumentos.
+  \item $G_3$ (passa-banda): sinal fraco e áspero, no ritmo da música, sem distinção de instrumentos.
+  \item $G_4$ (rejeita-banda): vocal e parte dos instrumentos audíveis, timbre abafado e ruidoso.
+  \item $G_1=G_2=G_3=G_4=1$: não reproduz $x(n)$; há perda perceptível de qualidade.
+\end{itemize}
+
+% \newpage
+\section*{Script (Octave)}
+
+\lstinputlisting[caption={\texttt{main.m}}]{main.m}
+
+\end{document}
