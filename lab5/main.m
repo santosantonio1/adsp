@@ -14,8 +14,7 @@ pkg load signal control
 Amax = 0.5; % dB, max attenuation in the passband
 Amin = 40;  % dB, min attenuation in the stopband
 
-% 'off' keeps the figure windows from opening; they are saved to img/ either
-% way. It has to be passed on every figure() call, which ignores the default.
+% 'off' keeps the figure windows from opening; they are saved to img/ anyway
 VIS = 'off';
 
 %% Plot Spectrum of a Signal
@@ -134,7 +133,7 @@ function [b, a, n, edges] = design_iir(type, approx, specs, Fs, Amax, Amin);
             error('design_iir: unknown filter type: %s', type);
     end
 
-    [b, a] = bilinear(bs, as, 1/Fs); % octave's bilinear takes T, not Fs
+    [b, a] = bilinear(bs, as, 1/Fs);
 end
 
 file = 'all_star.wav';
@@ -151,15 +150,13 @@ saveas(gcf, 'img/spectrum_x.png');
 filters = struct('name', {}, 'type', {}, 'approx', {}, 'specs', {}, 'test', {});
 
 %% Filter Specifications
-% same band split of lab 4, with wider transition bands: an IIR filter is
-% far more selective than a windowed FIR, so a narrow transition only
-% inflates the order
 % |------------|-----------------|-----------------|------------------> f(Hz)
 % 0  lowpass  600   stopband   7800   bandpass   12500   highpass
 %
-% approximation: Butterworth on the two filters that pass the low band,
-% where most of the energy of x(n) is and passband ripple would be audible;
-% Chebyshev I on the other two, where it saves the most order
+% Approximation: 
+%
+%   - Butterworth on Lowpass and Stopband
+%   - Chebyshev I on Highpass and Bandpass
 
 % Lowpass filter: fp=600 Hz, fs=1200 Hz
 filters(1).name   = 'Lowpass';
@@ -258,13 +255,12 @@ for k = 1:nfilt
                 sprintf('Spectrum of y%d(n) - %s', k, filters(k).name), VIS);
     saveas(gcf, sprintf('img/spectrum_y%d.png', k));
 
-    % observed band: where |Y| is less than Amin below its own peak
+    % observed band: where |Y| is above its own peak attenuated by Amin
     i = find(Y > 10^(-Amin/20)*max(Y));
     fprintf('  peak |Y| = %.3g (peak |X| = %.3g), band = %.0f - %.0f Hz, rms = %.4f\n', ...
             max(Y), max(X), f(i(1)), f(i(end)), rms(y_k{k}));
 
-    % does the filter do its job? take one frequency inside the passband and
-    % one inside the stopband and compare the spectrum before and after
+    % Validation
     label = {'passband', 'stopband'};
     for r = 1:2
         [~, j] = min(abs(f - filters(k).test(r)));
