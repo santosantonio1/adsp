@@ -1,0 +1,239 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazil]{babel}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{siunitx}
+\usepackage{float}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+\usepackage{fancyvrb}
+
+\sisetup{output-decimal-marker={,}}
+\graphicspath{{img/}}
+
+\lstset{
+  basicstyle=\ttfamily\scriptsize,
+  keywordstyle=\color{blue!60!black},
+  commentstyle=\color{green!40!black},
+  stringstyle=\color{red!60!black},
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  breaklines=true,
+  frame=single,
+  language=Matlab,
+  showstringspaces=false,
+  captionpos=b
+}
+
+\title{Aplicações de Processamento Digital de Sinais -- 4456S-04\\[2mm]
+\large Prática 5: Projeto de Filtros IIR}
+\author{Antônio Vinicius Corrêa dos Santos}
+\date{21/09/2026}
+
+\begin{document}
+
+\maketitle
+
+Sinal: \texttt{all\_star.wav}, $F_a = \SI{44100}{\hertz}$, $F_a/2 = \SI{22050}{\hertz}$.
+Requisitos: $A_{\text{máx}} = \SI{0.5}{\decibel}$, $A_{\text{mín}} = \SI{40}{\decibel}$.
+
+\section{Espectro de frequências de $x(n)$}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.68\textwidth]{spectrum_x.png}
+\caption{Espectro de magnitude de $x(n)$.}
+\end{figure}
+
+Divisão adotada para os filtros, a mesma da Prática 4:
+
+\begin{center}
+\begin{BVerbatim}[fontsize=\small]
+0               600               7800           12500
+|----------------|-----------------|---------------|-----------------> f(Hz)
+   passa-baixas     rejeita-banda     passa-banda     passa-altas
+\end{BVerbatim}
+\end{center}
+
+\section{Projeto dos filtros IIR}
+
+\textbf{Aproximações:} Butterworth no passa-baixas e no rejeita-banda, que são os filtros
+que deixam passar a região de baixa frequência, onde está a maior parte da energia de
+$x(n)$ e onde o \emph{ripple} seria audível; Chebyshev I no passa-altas e no passa-banda,
+onde a transição é mais apertada e a economia de ordem compensa a ondulação de
+\SI{0.5}{\decibel}.
+
+\textbf{Método:} pré-distorção das bordas, protótipo normalizado (\texttt{cheb1ap}),
+transformação de banda (\texttt{lp2lp}, \texttt{lp2hp}, \texttt{lp2bp}, \texttt{lp2bs}) e
+transformação bilinear.
+
+As bandas de transição são mais largas que as da Prática 4, porque o IIR é bem mais
+seletivo que o FIR por janelamento e uma transição estreita só infla a ordem. No
+passa-banda e no rejeita-banda a quarta borda vem da simetria geométrica exigida pela
+transformação, $\Omega_{s2} = \Omega_{p1}\Omega_{p2}/\Omega_{s1}$.
+
+\begin{table}[H]
+\centering
+\caption{Especificações e resultados de projeto.}
+\small
+\begin{tabular}{lcccccc}
+\toprule
+\textbf{Filtro} & \textbf{Aprox.} & \textbf{Passagem [Hz]} & \textbf{Rejeição [Hz]} & $n$ &
+\textbf{Ordem} & $|H|$ \textbf{nas bordas [dB]} \\
+\midrule
+Passa-baixas  & Butt.   & $600$                & $1200$               & 9 & 9  & $-0{,}50$ / $-45{,}19$ \\
+Passa-altas   & Cheb. I & $12500$              & $10000$              & 8 & 8  & $-0{,}50$ / $-47{,}23$ \\
+Passa-banda   & Cheb. I & $7800$--$12500$      & $6500$ e $13952{,}9$ & 6 & 12 & $-0{,}50$ / $-42{,}91$ \\
+Rejeita-banda & Butt.   & $<300$ e $>12536{,}5$& $600$--$7800$        & 8 & 16 & $-0{,}50$ / $-42{,}81$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Respostas em frequência sobrepostas}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.72\textwidth]{freq_responses.png}
+\caption{Respostas em frequência dos quatro filtros IIR.}
+\end{figure}
+
+\section{Espectros de saída e validação}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.48\textwidth]{spectrum_y1.png}
+\hfill
+\includegraphics[width=0.48\textwidth]{spectrum_y2.png}\\[2mm]
+\includegraphics[width=0.48\textwidth]{spectrum_y3.png}
+\hfill
+\includegraphics[width=0.48\textwidth]{spectrum_y4.png}
+\caption{Espectros de $y_1$ (passa-baixas), $y_2$ (passa-altas), $y_3$ (passa-banda) e
+$y_4$ (rejeita-banda).}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\caption{Banda prevista pelas especificações $\times$ banda observada, tomada onde $|Y|$
+fica a menos de \SI{40}{\decibel} do seu pico.}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Saída} & \textbf{Banda prevista [Hz]} & \textbf{Banda observada [Hz]} \\
+\midrule
+$y_1$ & $0$--$600$        & $0$--$936$       \\
+$y_2$ & $>12500$          & $10218$--$16333$ \\
+$y_3$ & $7800$--$12500$   & $7330$--$13340$  \\
+$y_4$ & $<300$ e $>12536$ & $0$--$16225$     \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Tomando uma frequência dentro da banda passante e outra dentro da banda de rejeição de
+cada filtro, e comparando a magnitude do espectro antes e depois da filtragem:
+
+\begin{table}[H]
+\centering
+\caption{Magnitude do espectro em duas frequências por filtro, antes e depois da
+filtragem.}
+\begin{tabular}{llcccc}
+\toprule
+\textbf{Filtro} & \textbf{Banda} & $f$ \textbf{[Hz]} & $|X(f)|$ & $|Y(f)|$ &
+\textbf{Atenuação [dB]} \\
+\midrule
+Passa-baixas  & passante & $300$   & $1{,}43\times10^3$ & $1{,}43\times10^3$ & $0{,}0$   \\
+              & rejeição & $3000$  & $713$              & $9{,}15\times10^{-4}$         & $117{,}8$ \\
+\midrule
+Passa-altas   & passante & $15000$ & $148$              & $141$              & $0{,}5$   \\
+              & rejeição & $3000$  & $713$              & $1{,}54\times10^{-5}$       & $153{,}3$ \\
+\midrule
+Passa-banda   & passante & $10000$ & $286$              & $271$              & $0{,}5$   \\
+              & rejeição & $3000$  & $713$              & $2{,}72\times10^{-3}$         & $108{,}4$ \\
+\midrule
+Rejeita-banda & passante & $150$   & $9{,}16\times10^3$ & $9{,}16\times10^3$ & $0{,}0$   \\
+              & rejeição & $3000$  & $713$              & $2{,}68\times10^{-6}$      & $168{,}5$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Nas frequências da banda passante a magnitude atravessa o filtro praticamente intacta,
+com perda de no máximo \SI{0.5}{\decibel}, dentro de
+$A_{\text{máx}} = \SI{0.5}{\decibel}$. Nas frequências da banda de rejeição ela é
+eliminada, com atenuação de $108$ a \SI{168}{\decibel}, muito além dos
+$A_{\text{mín}} = \SI{40}{\decibel}$ exigidos --- $A_{\text{mín}}$ é cobrado na borda da
+banda, e essas frequências estão no interior dela. Os quatro filtros funcionam como
+especificado.
+
+Validação:
+
+\begin{itemize}\itemsep0pt
+  \item As bordas observadas caem dentro das bandas de transição especificadas: $y_1$
+        termina em \SI{936}{\hertz} (transição \SI{600}{}--\SI{1200}{\hertz}), $y_2$
+        começa em \SI{10218}{\hertz} (\SI{10000}{}--\SI{12500}{\hertz}) e $y_3$ ocupa
+        \SI{7330}{}--\SI{13340}{\hertz} (transições \SI{6500}{}--\SI{7800}{} e
+        \SI{12500}{}--\SI{13952.9}{\hertz}).
+  \item O limite superior de $y_2$ e $y_4$, em torno de \SI{16.3}{\kilo\hertz}, é imposto
+        pelo conteúdo de $x(n)$, que já é nulo acima dessa frequência, e não pelos filtros.
+  \item O pico de $y_1$ e de $y_4$ é $4{,}29\times10^4$, idêntico ao pico de $x(n)$,
+        confirmando ganho unitário (\SI{0}{\decibel}) na banda passante.
+\end{itemize}
+
+\section{Atraso de grupo e polos e zeros}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.49\textwidth]{filter_1_pz.png}
+\hfill
+\includegraphics[width=0.49\textwidth]{filter_2_pz.png}\\[2mm]
+\includegraphics[width=0.49\textwidth]{filter_3_pz.png}
+\hfill
+\includegraphics[width=0.49\textwidth]{filter_4_pz.png}
+\caption{Atraso de grupo e diagrama de polos e zeros: passa-baixas, passa-altas,
+passa-banda e rejeita-banda.}
+\end{figure}
+
+Ao contrário dos FIR da Prática 4, o atraso de grupo não é constante: é aproximadamente
+plano no interior da banda passante e sobe junto à borda de transição, onde os polos ficam
+mais próximos da circunferência unitária. Os máximos são \num{8.4} amostras em
+\SI{1852}{\hertz} no passa-baixas, \num{28} em \SI{12468}{\hertz} no passa-altas, \num{52}
+em \SI{7784}{\hertz} no passa-banda e \num{246} em \SI{3553}{\hertz} no rejeita-banda.
+Este último é o maior de todos, mas cai dentro da banda rejeitada, já atenuada em mais de
+\SI{40}{\decibel}, e portanto não distorce a saída. A fase não linear é o preço do IIR: as
+ordens aqui são uma fração das dos FIR equivalentes da Prática 4.
+
+Todos os polos estão dentro da circunferência unitária (maior módulo \num{0.983},
+\num{0.958}, \num{0.977} e \num{0.991}), logo os quatro filtros são estáveis. Como os dois
+protótipos são só de polos, todos os zeros de $H(z)$ caem sobre a circunferência unitária:
+em $z = -1$ ($f = F_a/2$) no passa-baixas, em $z = +1$ ($f = 0$) no passa-altas, metade em
+cada um no passa-banda, e na frequência central da banda rejeitada no rejeita-banda. Nos
+gráficos eles aparecem como um aglomerado em vez de um ponto único porque um zero de
+multiplicidade alta é numericamente sensível.
+
+\section{Sistema completo e teste dos ganhos}
+
+Implementado $y(n) = \sum_{k=1}^{4} G_k y_k(n)$ conforme a Figura~1 do enunciado da
+Prática 4. Comutando cada $G_k$ entre ``0'' e ``1'':
+
+\begin{itemize}\itemsep0pt
+  \item $G_1$ (passa-baixas): som abafado, só o grave; o vocal ainda é inteligível.
+  \item $G_2$ (passa-altas): amplitude muito baixa (rms \num{0.0257}), só o ``chiado''
+        da música.
+  \item $G_3$ (passa-banda): sinal fraco e metálico (rms \num{0.0341}), acompanha o ritmo
+        sem vocal nem instrumentos definidos.
+  \item $G_4$ (rejeita-banda): o vocal quase desaparece, sobram o grave e o agudo.
+  \item $G_1=G_2=G_3=G_4=1$: parecido com $x(n)$, mas com o meio da banda enfraquecido; a
+        faixa \SI{1200}{}--\SI{6500}{\hertz} não é coberta por nenhum filtro com ganho
+        pleno e as somas nas transições ocorrem com fases diferentes.
+\end{itemize}
+
+% \newpage
+\section*{Script (Octave)}
+
+\lstinputlisting[caption={\texttt{main.m}}]{main.m}
+
+\end{document}
