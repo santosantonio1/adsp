@@ -5,7 +5,11 @@ clc
 pkg load signal
 pkg load image
 
-VIS = 'on';
+global VIS = 'off';
+
+if ~exist('plots', 'dir'), mkdir('plots'); end
+
+fig = 'lena_c.jpg';
 
 filters = struct('name', {}, 'weights', {});
 
@@ -32,3 +36,39 @@ filters(7).weights  = [  5  5  5; -3  0 -3; -3 -3 -3 ];
 
 filters(8).name     = 'Laplacian';
 filters(8).weights  = [  1 -2  1; -2  4 -2;  1 -2  1 ];
+
+function img = read_img(name)
+    root = './img/';
+    X = imread([root name]);
+    X = rgb2gray(X);
+    img = double(X)./255;
+end
+
+function [X,Y] = plot_comparison(fig_id, name, spec)
+    global VIS
+    X = read_img(name);
+    Y = filter2(spec.weights, X);
+
+    figure(fig_id, 'visible', VIS);
+    subplot(1,2,1);
+    colormap(gray(256));
+    imshow(X);
+    title(name);
+
+    subplot(1,2,2);
+    colormap(gray(256));
+    imshow(Y);
+    title(spec.name);
+
+    [~, base] = fileparts(name);
+    tag = strrep(spec.name, ' - ', '_');
+    saveas(gcf, ['plots/' base '_' tag '.jpg']);
+end
+
+function sweep(name, filters)
+    for i = 1:numel(filters)
+        plot_comparison(i, name, filters(i));
+    end
+end
+
+sweep(fig, filters);
