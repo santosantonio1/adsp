@@ -5,7 +5,7 @@ clc
 pkg load signal
 pkg load image
 
-global VIS = 'off';
+global VIS = 'on';
 
 if ~exist('plots', 'dir'), mkdir('plots'); end
 
@@ -16,6 +16,10 @@ function img = read_img(name)
     X = imread([root name]);
     X = rgb2gray(X);
     img = double(X)./255;
+end
+
+function save_fig(tag)
+    saveas(gcf, ['plots/' tag '.jpg']);
 end
 
 img = read_img(fig);
