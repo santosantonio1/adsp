@@ -1,0 +1,259 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazil]{babel}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{siunitx}
+\usepackage{float}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+
+\sisetup{output-decimal-marker={,}}
+\graphicspath{{plots/}}
+
+\lstset{
+  basicstyle=\ttfamily\scriptsize,
+  keywordstyle=\color{blue!60!black},
+  commentstyle=\color{green!40!black},
+  stringstyle=\color{red!60!black},
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  breaklines=true,
+  frame=single,
+  language=Matlab,
+  showstringspaces=false,
+  captionpos=b
+}
+
+\title{Aplicações de Processamento Digital de Sinais -- 4456S-04\\[2mm]
+\large Prática 6: Filtragem de Imagem}
+\author{Antônio Vinicius Corrêa dos Santos}
+\date{28/09/2026}
+
+\begin{document}
+
+\maketitle
+
+Imagem: \texttt{lena\_c.jpg}, $256\times256$, convertida para escala de cinza com
+\texttt{rgb2gray} e normalizada para $[0,1]$. Todas as figuras são geradas por
+\texttt{main.m} e gravadas em \texttt{plots/}.
+
+\section{Espectro de Fourier da imagem}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.45\textwidth]{spectrum_original.jpg}
+\caption{Espectro de magnitude, $\log(1+|\mathcal{F}\{x\}|)$, centralizado com
+\texttt{fftshift}.}
+\end{figure}
+
+A energia se concentra no centro (baixas frequências) e cai rapidamente com o raio. As
+duas faixas claras horizontal e vertical vêm da descontinuidade entre as bordas opostas
+da imagem, que a DFT trata como periódica.
+
+\section{Parte I --- filtragem no domínio espacial}
+
+Cada máscara foi aplicada com \texttt{filter2} e o resultado exibido ao lado da imagem
+original. A máscara passa-baixas foi normalizada por $1/9$ para manter o ganho DC
+unitário. As saídas dos filtros derivativos são exibidas com \texttt{imshow(Y,[])},
+porque têm valores negativos.
+
+\begin{table}[H]
+\centering
+\caption{Máscaras utilizadas e efeito observado.}
+\small
+\begin{tabular}{llp{7.4cm}}
+\toprule
+\textbf{Máscara} & \textbf{Tipo} & \textbf{Efeito observado} \\
+\midrule
+Passa-baixas  & média $3\times3$ & Suavização leve; bordas e textura do cabelo perdem
+definição. \\
+Passa-altas   & soma nula, centro $8$ & Só as bordas sobrevivem; as regiões de
+intensidade constante vão a zero. \\
+Prewitt vert. / Sobel vert.  & derivada em $x$ & Realçam bordas verticais; Sobel dá
+contornos mais fortes por causa do peso $2$ na linha central. \\
+Prewitt hor. / Sobel hor.    & derivada em $y$ & O mesmo para bordas horizontais (chapéu,
+ombro). \\
+Kirsch        & direcional & Realce direcional de borda, com aspecto de relevo
+(\emph{embossing}). \\
+Laplaciano    & segunda derivada & Detecta borda nas duas direções, mas a resposta é
+bem mais fraca que a dos de primeira derivada: só as transições mais abruptas aparecem,
+como linhas finas sobre fundo uniforme. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.49\textwidth]{lena_c_Lowpass.jpg}
+\hfill
+\includegraphics[width=0.49\textwidth]{lena_c_Highpass.jpg}\\[1mm]
+\includegraphics[width=0.49\textwidth]{lena_c_Sobel_Vertical.jpg}
+\hfill
+\includegraphics[width=0.49\textwidth]{lena_c_Sobel_Horizontal.jpg}\\[1mm]
+\includegraphics[width=0.49\textwidth]{lena_c_Kirsch.jpg}
+\hfill
+\includegraphics[width=0.49\textwidth]{lena_c_Laplacian.jpg}
+\caption{Original $\times$ filtrada: passa-baixas, passa-altas, Sobel vertical, Sobel
+horizontal, Kirsch e Laplaciano. As saídas de Prewitt estão em
+\texttt{plots/lena\_c\_Prewitt\_*.jpg} e são visualmente próximas das de Sobel.}
+\end{figure}
+
+\section{Parte II --- filtragem no domínio da frequência}
+
+As máscaras são construídas sobre a matriz de distância $D$ centrada, então o produto é
+feito com o espectro deslocado e desfeito antes da inversa:
+\[
+y = \Re\left\{ \mathcal{F}^{-1}\!\left[\text{ifftshift}\big(\text{fftshift}(\mathcal{F}\{x\})\cdot H\big)\right] \right\}.
+\]
+Multiplicar $H$ centrada diretamente por \texttt{fft2(img)} produz uma imagem
+embaralhada; este foi o único ponto que exigiu atenção na implementação.
+
+\[
+H_{\text{ideal}}(u,v) = \begin{cases} 1, & D \le D_0 \\ 0, & D > D_0 \end{cases}
+\qquad
+H_{\text{butt}}(u,v) = \frac{1}{1 + (D/D_0)^{2n}}
+\qquad
+H_{\text{PA}} = 1 - H_{\text{butt}}
+\]
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\textwidth]{masks_D0-50_n-2.jpg}
+\caption{Máscaras para $D_0=50$, $n=2$.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.49\textwidth]{lena_D0-50_n-2.jpg}
+\hfill
+\includegraphics[width=0.49\textwidth]{lena_D0-10_n-2.jpg}\\[1mm]
+\includegraphics[width=0.49\textwidth]{lena_D0-120_n-2.jpg}
+\hfill
+\includegraphics[width=0.49\textwidth]{lena_D0-50_n-8.jpg}
+\caption{Filtragem para $(D_0,n) = (50,2)$, $(10,2)$, $(120,2)$ e $(50,8)$. Em cada
+figura: original, passa-baixas ideal, passa-baixas de Butterworth e passa-altas de
+Butterworth.}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\caption{Fração da energia do espectro que atravessa cada máscara,
+$\sum |X\cdot H|^2 / \sum |X|^2$.}
+\begin{tabular}{ccccc}
+\toprule
+$D_0$ & $n$ & \textbf{PB ideal} & \textbf{PB Butterworth} & \textbf{PA Butterworth} \\
+\midrule
+$50$  & $2$ & $0{,}9942$ & $0{,}9910$ & $0{,}0043$ \\
+$10$  & $2$ & $0{,}9650$ & $0{,}9540$ & $0{,}0295$ \\
+$120$ & $2$ & $0{,}9996$ & $0{,}9980$ & $0{,}0004$ \\
+$50$  & $8$ & $0{,}9942$ & $0{,}9936$ & $0{,}0053$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Observações:
+
+\begin{itemize}\itemsep0pt
+  \item \textbf{Ideal $\times$ Butterworth.} O corte abrupto do filtro ideal produz
+        \emph{ringing}: ondulações concêntricas em torno das bordas, bem visíveis em
+        $D_0=10$. É o efeito de Gibbs em duas dimensões --- o equivalente espacial de
+        $H_{\text{ideal}}$ é uma função tipo \emph{sinc} de suporte infinito. O
+        Butterworth, com transição suave, não apresenta esse artefato; sua saída é
+        apenas borrada.
+  \item \textbf{Frequência de corte.} $D_0=10$ borra fortemente (resta pouco mais que a
+        silhueta), $D_0=50$ suaviza a textura mantendo a forma, e $D_0=120$ quase não
+        altera a imagem --- com $256\times256$, o raio de Nyquist é $128$, então
+        $D_0=120$ deixa passar praticamente todo o espectro.
+  \item \textbf{Ordem.} Aumentar $n$ de $2$ para $8$ com $D_0$ fixo aproxima o
+        Butterworth do filtro ideal: a energia retida sobe de $0{,}9910$ para $0{,}9936$
+        e começa a aparecer um leve \emph{ringing}, ainda muito menor que o do corte
+        abrupto.
+  \item \textbf{Passa-altas.} $1 - H_{\text{butt}}$ retém menos de \SI{3}{\percent} da
+        energia e devolve apenas o mapa de bordas, coerente com o resultado das máscaras
+        espaciais da Parte I.
+\end{itemize}
+
+\section{Imagem com \emph{blur} horizontal}
+
+O \emph{blur} foi gerado com a máscara $h = \frac{1}{16}[1\;1\;\cdots\;1]$ ($1\times16$).
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.49\textwidth]{lena_c_Blurr_Horizontal.jpg}
+\hfill
+\includegraphics[width=0.36\textwidth]{spectrum_blur.jpg}
+\caption{Imagem borrada na direção horizontal e seu espectro. As faixas escuras
+verticais são os zeros do \emph{sinc} da média móvel.}
+\end{figure}
+
+O espectro mostra o que o \emph{blur} faz: a média móvel de 16 pontos tem resposta
+$\sin(8\omega)/(16\sin(\omega/2))$, cujos zeros anulam completamente linhas inteiras de
+frequências horizontais. Essa informação é perdida, não apenas atenuada.
+
+\begin{table}[H]
+\centering
+\caption{Energia retida ao filtrar a imagem já borrada.}
+\begin{tabular}{ccccc}
+\toprule
+$D_0$ & $n$ & \textbf{PB ideal} & \textbf{PB Butterworth} & \textbf{PA Butterworth} \\
+\midrule
+$50$  & $2$ & $0{,}9997$ & $0{,}9994$ & $0{,}0002$ \\
+$10$  & $2$ & $0{,}9946$ & $0{,}9860$ & $0{,}0045$ \\
+$120$ & $2$ & $1{,}0000$ & $0{,}9999$ & $0{,}0000$ \\
+$50$  & $8$ & $0{,}9997$ & $0{,}9997$ & $0{,}0002$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Comparando com a tabela anterior, as frações são mais altas para os mesmos $(D_0,n)$:
+a imagem borrada já não tem energia em alta frequência, então os passa-baixas quase não
+têm o que remover. Aplicar passa-baixas sobre a imagem borrada só a borra mais;
+nenhum deles reduz o \emph{blur}.
+
+\subsection*{Tentativa de atenuar o \emph{blur}}
+
+Como o \emph{blur} é uma perda de altas frequências, testamos realce por
+\emph{unsharp masking}, $y = x_{\text{blur}} + k\,(1-H_{\text{butt}})\ast x_{\text{blur}}$,
+variando $D_0$ e o ganho $k$.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\textwidth]{blur_unsharp.jpg}
+\caption{Imagem borrada e duas tentativas de realce.}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\caption{Erro RMS em relação à imagem original.}
+\begin{tabular}{lc}
+\toprule
+\textbf{Imagem} & \textbf{RMS} \\
+\midrule
+Borrada                          & $0{,}0944$ \\
+Realçada, $D_0=10$, $n=2$, $k=0{,}25$ & $0{,}0939$ \\
+Realçada, $D_0=5$,  $n=2$, $k=1{,}0$  & $0{,}1116$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+O realce aumenta o contraste das bordas que sobreviveram e a imagem parece mais nítida,
+mas o erro em relação à original praticamente não melhora ($0{,}0944 \to 0{,}0939$) e
+piora com ganho alto. A razão é que as máscaras são \emph{isotrópicas} e o \emph{blur} é
+direcional: o realce amplifica também as frequências verticais, que nunca foram
+degradadas, enquanto as horizontais anuladas pelos zeros do \emph{sinc} não podem ser
+recuperadas por multiplicação no domínio da frequência --- seriam necessárias divisão por
+$H$ (filtro inverso) ou um filtro de Wiener, fora do escopo desta prática. A conclusão da
+parte final é negativa e esperada: filtragem passa-baixas/passa-altas isotrópica não
+desfaz um \emph{blur} direcional.
+
+\section*{Script (Octave)}
+
+\lstinputlisting[caption={\texttt{main.m}}]{main.m}
+
+\end{document}
