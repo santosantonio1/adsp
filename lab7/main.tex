@@ -1,0 +1,337 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazil]{babel}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{siunitx}
+\usepackage{float}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+
+\sisetup{output-decimal-marker={,}}
+\graphicspath{{plots/}}
+
+\lstset{
+  basicstyle=\ttfamily\scriptsize,
+  keywordstyle=\color{blue!60!black},
+  commentstyle=\color{green!40!black},
+  stringstyle=\color{red!60!black},
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  breaklines=true,
+  frame=single,
+  language=Matlab,
+  showstringspaces=false,
+  captionpos=b
+}
+
+\title{Aplicações de Processamento Digital de Sinais -- 4456S-04\\[2mm]
+\large Prática 7: Compressão de Imagem}
+\author{Antônio Vinicius Corrêa dos Santos}
+\date{13/10/2026}
+
+\begin{document}
+
+\maketitle
+
+Imagem: \texttt{lena\_c.jpg}, $256\times256$, convertida para escala de cinza com
+\texttt{rgb2gray} e mantida em $[0,255]$. Todas as figuras são geradas por
+\texttt{main.m} e gravadas em \texttt{plots/}.
+
+\section{Espectro da DCT 2D}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.49\textwidth]{dct_spectrum.jpg}
+\hfill
+\includegraphics[width=0.49\textwidth]{dct_spectrum_zoom.jpg}
+\caption{Espectro de magnitude da DCT, $\log(1+|X(u,v)|)$: matriz completa e canto
+$32\times32$ de baixa frequência.}
+\end{figure}
+
+Os pontos mais brilhantes estão no \textbf{canto superior esquerdo} da matriz, em torno
+de $(u,v)=(1,1)$, e a amplitude cai ao longo das diagonais em direção ao canto inferior
+direito. O coeficiente $(1,1)$ é a componente DC, proporcional ao brilho médio da
+imagem; os vizinhos são as baixas frequências espaciais, que descrevem as variações
+lentas de intensidade --- regiões homogêneas, sombreamento e a forma geral dos objetos.
+Os coeficientes distantes do canto representam as variações rápidas (bordas finas,
+textura do cabelo e do chapéu, ruído) e têm amplitude muito menor.
+
+Diferente da DFT, a DCT não precisa de \texttt{fftshift}: ela não tem frequências
+negativas, então a origem já é o canto, e como a extensão implícita da imagem é par,
+não aparecem as faixas causadas pela descontinuidade entre bordas opostas vistas na
+Prática 6.
+
+\section{Máscara zonal triangular}
+
+A máscara $A$ vale $1$ no triângulo superior esquerdo de lado $j$, ou seja, nas posições
+com $u+v \le j+1$, e $0$ nas demais:
+\par\noindent\begin{minipage}{\linewidth}
+\begin{lstlisting}[numbers=none,frame=none]
+function A = zonal_mask(j, N)
+    A = zeros(N);
+    A(1:j,1:j) = fliplr(triu(ones(j)));
+end
+\end{lstlisting}
+\end{minipage}
+\texttt{triu} gera o triângulo acima da diagonal principal e \texttt{fliplr} o espelha
+para que a hipotenusa fique na antidiagonal. O número de coeficientes mantidos é
+$j(j+1)/2$.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\textwidth]{masks_and_error.jpg}
+\caption{Máscara para $j=8$ (canto $16\times16$), máscara para $j=128$ e erro absoluto
+da reconstrução com $j=128$.}
+\end{figure}
+
+\section{Reconstrução com coeficientes truncados}
+
+Para cada $j\in\{1,2,4,8,16,32,64,128\}$: $Y = \text{idct2}(X\odot A_j)$. As
+reconstruções em tamanho original estão em \texttt{plots/recon\_j-*.jpg}.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.55\textwidth]{recon_grid.jpg}
+\caption{Original e reconstruções para os oito valores de $j$.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.3\textwidth]{recon_j-016.jpg}
+\hfill
+\includegraphics[width=0.3\textwidth]{recon_j-032.jpg}
+\hfill
+\includegraphics[width=0.3\textwidth]{recon_j-128.jpg}
+\caption{Reconstruções para $j=16$, $32$ e $128$, a partir dos arquivos em resolução original ($256\times256$).}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\caption{Coeficientes mantidos, fração da energia retida
+$\sum|X\odot A|^2/\sum|X|^2$ e erro em relação à original.}
+\begin{tabular}{rrrccc}
+\toprule
+$j$ & \textbf{Coef.} & \textbf{Mantidos (\%)} & \textbf{Energia} & \textbf{RMSE} &
+\textbf{PSNR (dB)} \\
+\midrule
+$1$   & $1$    & $0{,}0015$  & $0{,}8708$ & $47{,}77$ & $14{,}55$ \\
+$2$   & $3$    & $0{,}0046$  & $0{,}8794$ & $46{,}15$ & $14{,}85$ \\
+$4$   & $10$   & $0{,}0153$  & $0{,}8913$ & $43{,}83$ & $15{,}30$ \\
+$8$   & $36$   & $0{,}0549$  & $0{,}9202$ & $37{,}55$ & $16{,}64$ \\
+$16$  & $136$  & $0{,}2075$  & $0{,}9527$ & $28{,}90$ & $18{,}91$ \\
+$32$  & $528$  & $0{,}8057$  & $0{,}9740$ & $21{,}44$ & $21{,}51$ \\
+$64$  & $2080$ & $3{,}1738$  & $0{,}9871$ & $15{,}07$ & $24{,}57$ \\
+$128$ & $8256$ & $12{,}5977$ & $0{,}9946$ & $9{,}74$  & $28{,}36$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Observações:
+
+\begin{itemize}\itemsep0pt
+  \item \textbf{$j=1$ a $4$.} Com só o termo DC a imagem é um cinza uniforme no nível
+        médio; até $j=4$ aparecem apenas gradientes suaves. Ainda assim o termo DC
+        sozinho carrega \SI{87}{\percent} da energia --- energia não é o mesmo que
+        informação visual.
+  \item \textbf{$j=8$ e $16$.} Surgem manchas claras e escuras na posição do rosto e do
+        chapéu, mas sem forma definida.
+  \item \textbf{A partir de $j=32$} as características principais tornam-se
+        discerníveis: o contorno do chapéu, o rosto, o ombro e a moldura ao fundo são
+        reconhecíveis, embora borrados. Nesse ponto são mantidos
+        $32\cdot33/2 = 528$ coeficientes, isto é,
+        $528/65536 \approx \SI{0,81}{\percent}$ do total.
+  \item \textbf{$j=64$} já mostra os olhos, a boca e a pena do chapéu com
+        \SI{3,2}{\percent} dos coeficientes.
+  \item O borrado das reconstruções tem um leve \emph{ringing} junto às bordas fortes,
+        efeito do corte abrupto da máscara (o mesmo fenômeno do passa-baixas ideal da
+        Prática 6).
+\end{itemize}
+
+\section{Comparação entre $j=128$ e a original}
+
+Com $j=128$ são descartados \SI{87,4}{\percent} dos coeficientes e, à distância normal
+de visualização, a imagem é praticamente indistinguível da original: PSNR de
+\SI{28,4}{dB} e \SI{99,46}{\percent} da energia retida. A perda existe, mas é sutil:
+uma leve suavização da textura do cabelo e da pena, e o mapa de erro mostra que ela
+está concentrada exatamente nessas bordas e texturas finas, enquanto as regiões
+homogêneas (pele, fundo) têm erro quase nulo.
+
+A justificativa é a \textbf{compactação de energia} da DCT. Pixels vizinhos de uma
+imagem natural são fortemente correlacionados, e a DCT se aproxima da transformada
+ótima (Karhunen--Loève) para esse tipo de sinal: ela concentra quase toda a energia em
+poucos coeficientes de baixa frequência. Os \SI{87}{\percent} descartados respondem por
+apenas \SI{0,54}{\percent} da energia, e correspondem a detalhes de alta frequência aos
+quais o olho humano é pouco sensível. É esse o princípio explorado pelo JPEG, que aplica
+a DCT em blocos $8\times8$ e quantiza com mais força os coeficientes de alta frequência.
+
+\section{DCT em blocos com \texttt{blockproc}}
+
+A imagem foi dividida em blocos $B\times B$ e a DCT aplicada em cada bloco
+independentemente, com \texttt{funcao\_dct = @(b) dct2(b.data)} e, na volta,
+\texttt{funcao\_idct = @(b) idct2(b.data)}. No Octave o \texttt{blockproc} entrega o
+bloco como matriz, e não como \emph{struct} com campo \texttt{data}; a função auxiliar
+\texttt{bdata} aceita os dois formatos, de modo que o script roda igual no MATLAB.
+
+\subsection*{Pixels da imagem original e transformada ($B=8$)}
+
+O primeiro bloco $8\times8$ (canto superior esquerdo, região do fundo) e sua DCT:
+\[
+x = \begin{bmatrix}
+161 & 161 & 162 & 163 & 164 & 163 & 160 & 158\\
+162 & 161 & 162 & 162 & 162 & 161 & 158 & 156\\
+161 & 161 & 161 & 161 & 161 & 159 & 157 & 154\\
+159 & 159 & 159 & 159 & 159 & 158 & 156 & 154\\
+157 & 156 & 156 & 157 & 158 & 158 & 156 & 155\\
+156 & 155 & 155 & 156 & 157 & 158 & 157 & 156\\
+156 & 156 & 155 & 156 & 157 & 157 & 156 & 155\\
+158 & 157 & 156 & 156 & 156 & 156 & 155 & 154
+\end{bmatrix}
+\qquad
+X = \begin{bmatrix}
+1264 & 6 & -6 & 5 & 0 & 0 & 0 & 0\\
+16 & 4 & -4 & 0 & 0 & 0 & 0 & 0\\
+4 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\
+0 & -6 & 0 & 1 & 0 & 0 & 0 & 0\\
+0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\
+0 & 0 & -1 & 0 & 0 & 0 & -1 & 0\\
+0 & 0 & 0 & 0 & 0 & 0 & 0 & 0\\
+0 & 0 & 0 & 0 & 0 & 0 & 0 & 0
+\end{bmatrix}
+\]
+(valores arredondados). Os pixels variam pouco em torno de $158$, e a DCT reflete isso:
+o termo DC vale $1264 = 8\cdot\bar{x}$ ($\bar{x}\approx158$) e quase todos os demais
+coeficientes são próximos de zero. A compactação de energia observada na imagem inteira
+se repete dentro de cada bloco. Na imagem transformada completa
+(Figura~\ref{fig:block}, à esquerda) cada bloco tem seu ponto brilhante no canto
+superior esquerdo, formando uma grade com a mesma periodicidade dos blocos.
+
+\subsection*{Zerando coeficientes}
+
+Em cada bloco foram mantidos apenas os coeficientes do triângulo $u+v\le B/2+1$ (a
+mesma máscara zonal da seção anterior, com $j=B/2$) e o resto foi zerado. No primeiro
+bloco isso remove só o $-6$ e o $1$ da quarta linha e os $-1$ da sexta; a reconstrução
+fica
+\[
+\hat{x} = \begin{bmatrix}
+162 & 162 & 163 & 163 & 164 & 162 & 159 & 157\\
+161 & 161 & 162 & 162 & 163 & 161 & 159 & 156\\
+160 & 160 & 160 & 161 & 161 & 160 & 158 & 155\\
+159 & 158 & 158 & 159 & 159 & 159 & 157 & 155\\
+157 & 157 & 157 & 157 & 158 & 157 & 156 & 154\\
+157 & 156 & 156 & 156 & 157 & 157 & 156 & 154\\
+157 & 156 & 155 & 156 & 157 & 157 & 156 & 155\\
+157 & 156 & 155 & 156 & 157 & 157 & 156 & 155
+\end{bmatrix},
+\]
+com erro de no máximo $\pm2$ níveis de cinza por pixel. Zerar um coeficiente da DCT não
+apaga um pixel: cada coeficiente é uma função-base cosseno que cobre o bloco inteiro,
+então o erro se espalha de forma suave por todos os $64$ pixels do bloco, e nenhum
+pixel fora dele é afetado.
+
+Sem zerar nada, a IDCT recupera a imagem original até o erro numérico
+($\max|\hat{x}-x| < 10^{-12}$), confirmando que a DCT em blocos é inversível.
+
+\subsection*{Variação do tamanho do bloco}
+
+Os pixels foram verificados novamente na mesma janela $8\times8$ do canto superior
+esquerdo, agora para $B=4$, $16$ e $32$. Na imagem transformada:
+\[
+X_{B=4} = \begin{bmatrix}
+644 & -1 & 1 & 0 & 635 & 9 & -1 & 0\\
+4 & -1 & 0 & 0 & 7 & 1 & 0 & 0\\
+-2 & -1 & 0 & 0 & 1 & -1 & 0 & 0\\
+1 & 0 & 0 & 0 & 0 & 1 & 0 & 1\\
+625 & 1 & 2 & 0 & 625 & 3 & -1 & -1\\
+0 & -1 & 0 & 0 & 2 & 0 & 0 & 0\\
+2 & 1 & 0 & 0 & -1 & 1 & 0 & 0\\
+0 & 0 & 0 & 0 & 0 & 1 & 0 & 0
+\end{bmatrix}
+\]
+\[
+X_{B=32} = \begin{bmatrix}
+4971 & 138 & -144 & 239 & -178 & 62 & -105 & 89\\
+40 & -30 & -60 & -31 & 15 & 53 & 27 & -29\\
+-36 & -40 & 93 & 90 & -43 & -45 & -7 & 2\\
+40 & 32 & -17 & -55 & -18 & 48 & 25 & -4\\
+0 & -10 & 12 & 19 & 25 & 1 & -33 & -7\\
+10 & 2 & 5 & -20 & -8 & -4 & 6 & 6\\
+-1 & -1 & 7 & 8 & 12 & -6 & -4 & 0\\
+14 & 8 & -5 & -13 & -2 & -3 & 6 & 0
+\end{bmatrix}
+\]
+
+\begin{itemize}\itemsep0pt
+  \item Com $B=4$ a janela contém quatro blocos inteiros, e aparecem quatro termos DC
+        ($644$, $635$, $625$, $625$), cada um igual a $4$ vezes a média do seu bloco
+        ($\approx161$, $159$, $156$, $156$). Os outros coeficientes são quase nulos:
+        num bloco tão pequeno de fundo quase não há variação.
+  \item Com $B=16$ e $32$ a janela mostra só o canto de baixa frequência de um único
+        bloco. O DC cresce com o bloco ($2516 = 16\cdot157{,}3$ e
+        $4971 = 32\cdot155{,}3$), e os coeficientes AC deixam de ser desprezíveis
+        (até $\approx240$ para $B=32$), porque o bloco já abrange o fundo, a moldura e
+        parte do chapéu.
+  \item Com $B=32$ a janela inteira está dentro do triângulo mantido ($u+v\le17$), então
+        nenhum dos coeficientes mostrados é zerado; o que se perde fica fora dela.
+\end{itemize}
+
+Na imagem reconstruída após zerar os coeficientes, os pixels da janela continuam
+próximos da original para todos os tamanhos. O erro máximo nessa janela foi
+$1{,}42$, $1{,}55$, $1{,}88$ e $2{,}34$ níveis de cinza para $B=4$, $8$, $16$ e $32$.
+Ele cresce um pouco com $B$ porque o erro de cada bloco se espalha por mais pixels,
+mas continua imperceptível nessa região de fundo.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{block_04.jpg}\\
+\includegraphics[width=0.8\textwidth]{block_08.jpg}\\
+\includegraphics[width=0.8\textwidth]{block_16.jpg}\\
+\includegraphics[width=0.8\textwidth]{block_32.jpg}
+\caption{Para $B=4,8,16,32$: DCT em blocos ($\log(1+|X|)$), reconstrução após zerar
+os coeficientes fora do triângulo $j=B/2$ e \emph{zoom} na região do olho.}
+\label{fig:block}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\caption{Reconstrução com coeficientes zerados, por tamanho de bloco.}
+\begin{tabular}{rrcc}
+\toprule
+$B$ & \textbf{Mantidos (\%)} & \textbf{RMSE} & \textbf{PSNR (dB)} \\
+\midrule
+$4$  & $18{,}75$ & $9{,}94$ & $28{,}18$ \\
+$8$  & $15{,}62$ & $9{,}89$ & $28{,}23$ \\
+$16$ & $14{,}06$ & $9{,}84$ & $28{,}27$ \\
+$32$ & $13{,}28$ & $9{,}81$ & $28{,}29$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{itemize}\itemsep0pt
+  \item Na imagem transformada a grade acompanha $B$: com blocos pequenos ela parece
+        uma versão em mosaico da própria imagem (cada termo DC é a média do bloco);
+        com blocos grandes cada bloco mostra um espectro de verdade, com a energia
+        caindo do canto para fora.
+  \item Blocos maiores mantêm uma fração menor dos coeficientes e ainda assim dão erro
+        um pouco menor: há mais pixels correlacionados por bloco, então a compactação
+        de energia é melhor.
+  \item O tipo de artefato muda com $B$. Com blocos pequenos ($4$, $8$) aparece o
+        \emph{efeito de bloco}: cada bloco é aproximado sozinho, e as bordas entre
+        blocos vizinhos ficam visíveis como degraus no \emph{zoom}. Com blocos grandes
+        ($16$, $32$) as fronteiras somem, mas volta o \emph{ringing} junto às bordas
+        fortes, como na DCT da imagem inteira.
+  \item O custo computacional também cresce com $B$, e blocos grandes misturam
+        regiões de conteúdo diferente. O JPEG adota $8\times8$ como compromisso entre
+        compactação, custo e localização dos artefatos.
+\end{itemize}
+
+\section*{Script (Octave)}
+
+\lstinputlisting[caption={\texttt{main.m}}]{main.m}
+
+\end{document}
