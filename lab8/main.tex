@@ -1,0 +1,430 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazil]{babel}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{siunitx}
+\usepackage{float}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+
+\sisetup{output-decimal-marker={,}}
+\graphicspath{{plots/}}
+
+\lstset{
+  basicstyle=\ttfamily\scriptsize,
+  keywordstyle=\color{blue!60!black},
+  commentstyle=\color{green!40!black},
+  stringstyle=\color{red!60!black},
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  breaklines=true,
+  frame=single,
+  language=Matlab,
+  showstringspaces=false,
+  captionpos=b
+}
+
+\title{Aplicações de Processamento Digital de Sinais -- 4456S-04\\[2mm]
+\large Prática 8: Filtros Adaptativos -- LMS, NLMS e RLS}
+\author{Antônio Vinicius Corrêa dos Santos}
+\date{13/10/2026}
+
+\begin{document}
+
+\maketitle
+
+\section{Configuração}
+
+Os três algoritmos foram reunidos em um único \texttt{main.m}, com os mesmos parâmetros
+dos \emph{scripts} de exemplo (\texttt{lms.m}, \texttt{nlms.m}, \texttt{rls.m}):
+
+\begin{itemize}\itemsep0pt
+  \item Entrada $x = 1{,}74\,\mathcal{U}(-1,1)$, de variância
+        $\sigma_x^2 = 1{,}74^2/3 \approx 1{,}009$; ruído de medição gaussiano com
+        $\sigma_n^2 = 0{,}001$ ($-30$\,dB).
+  \item MSE estimado pela média de um \emph{ensemble} de $E$ realizações. Cada realização
+        usa a mesma semente em todas as configurações, então as diferenças entre curvas
+        vêm só do algoritmo e dos parâmetros.
+  \item Sistemas desconhecidos dos exemplos:
+        \begin{align*}
+        H_A(z) &= \frac{1-z^{-12}}{1-z^{-1}} = \sum_{k=0}^{11} z^{-k}
+        && (\texttt{lms.m}),\\
+        H_B(z) &= \frac{1-z^{-12}}{1+z^{-1}} = \sum_{k=0}^{11} (-1)^k z^{-k}
+        && (\texttt{nlms.m}, \texttt{rls.m}).
+        \end{align*}
+        O polo cancela um dos zeros de $1-z^{-12}$, então os dois são FIR de 12
+        coeficientes ($\pm1$): $H_A$ é um passa-baixas e $H_B$ um passa-altas. Um filtro
+        adaptativo de ordem $\text{ord}\ge 11$ consegue representá-los exatamente.
+\end{itemize}
+
+\paragraph{Métricas.} Para cada configuração são medidos:
+\begin{itemize}\itemsep0pt
+  \item \textbf{MSE final}: média do MSE nos últimos \SI{10}{\percent} das amostras;
+  \item \textbf{$t_c$}: tempo de convergência, a primeira amostra a partir da qual a média
+        das 50 seguintes fica a menos de 3\,dB do MSE final;
+  \item \textbf{erro dos coeficientes}: $\|\bar{w}-h\|^2/\|h\|^2$ em dB, com $\bar{w}$ a média
+        dos coeficientes finais no \emph{ensemble};
+  \item \textbf{desajuste} $M = (\text{MSE}-\xi_{\min})/\xi_{\min}$, experimental e
+        teórico. O MSE mínimo é $\xi_{\min} = \sigma_n^2 + \sigma_x^2 \sum_{k>\text{ord}}
+        h_k^2$: só o ruído quando $\text{ord}\ge11$, e o ruído mais os coeficientes que o
+        filtro não alcança quando a ordem é insuficiente
+        ($\xi_{\min} = 9{,}07$\,dB para $\text{ord}=3$ e $6{,}06$\,dB para
+        $\text{ord}=7$).
+\end{itemize}
+Os parâmetros são variados com $\text{ord}=11$ (a ordem exata); a ordem é variada com o
+parâmetro padrão de cada \emph{script}. Em todas as figuras, à esquerda está o MSE em dB
+(média móvel de 25 amostras, eixo de tempo logarítmico) e, à direita, a resposta em
+frequência do sistema (tracejado) e dos filtros obtidos.
+
+\section{LMS (\texttt{lms.m})}
+
+$\mathbf{w}(k+1) = \mathbf{w}(k) + 2\mu\, e(k)\,\mathbf{x}(k)$, com
+$\mu_{\max} = 1/\text{tr}(\mathbf{R}) = 1/((\text{ord}+1)\sigma_x^2)$, sistema $H_A$,
+$N=3000$, $E=20$. Desajuste teórico (eq.~3.47):
+$M = \mu\,\text{tr}(\mathbf{R})/(1-\mu\,\text{tr}(\mathbf{R}))$.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{lms_u.jpg}
+\caption{LMS, $\text{ord}=11$, variando $\mu$.}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\caption{LMS, $\text{ord}=11$, variando $\mu$.}
+\begin{tabular}{lrrrcc}
+\toprule
+$\mu$ & \textbf{MSE (dB)} & $t_c$ & \textbf{Erro coef. (dB)} & $M_{\text{exp}}$ & $M_t$ \\
+\midrule
+$\mu_{\max}$    & diverge  & --- & diverge  & ---      & $\infty$ \\
+$\mu_{\max}/2$  & $-26{,}63$ & $87$  & $-54{,}3$ & $1{,}17$  & $1{,}00$ \\
+$\mu_{\max}/5$  & $-28{,}98$ & $180$ & $-60{,}0$ & $0{,}265$ & $0{,}250$ \\
+$\mu_{\max}/10$ & $-29{,}53$ & $297$ & $-63{,}5$ & $0{,}115$ & $0{,}111$ \\
+$\mu_{\max}/20$ & $-29{,}78$ & $539$ & $-67{,}3$ & $0{,}052$ & $0{,}053$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{lms_ord.jpg}
+\caption{LMS, $\mu = \mu_{\max}/2$, variando a ordem.}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\caption{LMS, $\mu = \mu_{\max}(\text{ord})/2$, variando a ordem.}
+\begin{tabular}{lrrrrc}
+\toprule
+\textbf{ord} & \textbf{MSE (dB)} & $\xi_{\min}$ \textbf{(dB)} & $t_c$ & \textbf{Erro coef. (dB)} & $M_{\text{exp}}$ \\
+\midrule
+$3$  & $13{,}96$  & $9{,}07$   & ---   & $-1{,}6$  & $2{,}08$ \\
+$7$  & $9{,}98$   & $6{,}06$   & ---   & $-4{,}5$  & $1{,}47$ \\
+$11$ & $-26{,}63$ & $-30{,}00$ & $87$  & $-54{,}3$ & $1{,}17$ \\
+$15$ & $-26{,}67$ & $-30{,}00$ & $111$ & $-55{,}7$ & $1{,}15$ \\
+$23$ & $-26{,}78$ & $-30{,}00$ & $163$ & $-53{,}0$ & $1{,}10$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{itemize}\itemsep0pt
+  \item \textbf{Passo.} $\mu_{\max}$ é o limite de estabilidade: com $\mu=\mu_{\max}$
+        o desajuste teórico é infinito e o filtro de fato diverge (os coeficientes
+        chegam a $10^{18}$). Abaixo dele, o compromisso clássico aparece com clareza:
+        dividir $\mu$ por 2 dobra aproximadamente $t_c$ e divide o desajuste por 2. Com
+        $\mu_{\max}/20$ o MSE fica a $0{,}2$\,dB do ruído, mas leva 6 vezes mais tempo
+        que $\mu_{\max}/2$. O desajuste experimental concorda com a eq.~(3.47) para
+        $\mu$ pequeno; em $\mu_{\max}/2$ a aproximação já subestima um pouco
+        ($1{,}17$ contra $1{,}00$).
+  \item \textbf{Ordem.} Com $\text{ord}\ge11$ o sistema é identificado: a resposta em
+        frequência coincide com a do sistema e os coeficientes excedentes vão a zero. A
+        ordem maior não melhora o MSE, só atrasa a convergência ($87\to163$ amostras),
+        porque $\mu_{\max}$ cai com $1/(\text{ord}+1)$ e há mais coeficientes a ajustar.
+        Com $\text{ord}=3$ ou $7$ (o padrão do \texttt{lms.m}) o filtro não identifica o
+        sistema: o MSE nem desce, e fica acima de $\xi_{\min}$ (com $\text{ord}=3$ acaba
+        maior que o erro do filtro nulo, $10{,}8$\,dB). A parte não modelada age como
+        um ruído de potência $\sim\!4$--$8$, e com o passo $\mu_{\max}/2$ o desajuste
+        sobre esse nível é grande. Por isso $t_c$ não se aplica.
+\end{itemize}
+
+\section{NLMS}
+
+\subsection{\texttt{nlms.m}: LMS com sinal do erro}
+
+O \emph{script} fornecido não implementa o NLMS: a atualização é
+$\mathbf{w}(k+1) = \mathbf{w}(k) + 2\mu\,\text{sign}(e(k))\,\mathbf{x}(k)$, que é o
+algoritmo LMS com sinal do erro (\emph{sign-error}), e tanto
+$\mu_{\max} = \sqrt{\pi\sigma_n^2/2}/\text{tr}(\mathbf{R})$ quanto o desajuste teórico
+$M = \mu\,\text{tr}(\mathbf{R})\sqrt{\pi/(2\xi_{\min})}$ (eq.~4.28) são os desse
+algoritmo. Ele foi executado como fornecido (sistema $H_B$, $N=10000$, $E=10$), e um NLMS
+de verdade foi implementado na Seção~\ref{sec:nlms}.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{sign_u.jpg}
+\caption{\emph{Sign-error} LMS (\texttt{nlms.m}), $\text{ord}=11$, variando $\mu$.}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\caption{\emph{Sign-error} LMS, $\text{ord}=11$, variando $\mu$.}
+\begin{tabular}{lrrrcc}
+\toprule
+$\mu$ & \textbf{MSE (dB)} & $t_c$ & \textbf{Erro coef. (dB)} & $M_{\text{exp}}$ & $M_t$ \\
+\midrule
+$\mu_{\max}$    & $-23{,}74$ & $709$  & $-47{,}1$ & $3{,}23$  & $1{,}57$ \\
+$\mu_{\max}/2$  & $-26{,}70$ & $1369$ & $-49{,}8$ & $1{,}14$  & $0{,}785$ \\
+$\mu_{\max}/5$  & $-28{,}62$ & $3332$ & $-55{,}1$ & $0{,}373$ & $0{,}314$ \\
+$\mu_{\max}/10$ & $-29{,}30$ & $6568$ & $-59{,}1$ & $0{,}174$ & $0{,}157$ \\
+$\mu_{\max}/20$ & \multicolumn{5}{l}{não converge em $10000$ amostras} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{sign_ord.jpg}
+\caption{\emph{Sign-error} LMS, $\mu = \mu_{\max}/2$, variando a ordem.}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\caption{\emph{Sign-error} LMS, $\mu = \mu_{\max}(\text{ord})/2$, variando a ordem.}
+\begin{tabular}{lrrrrc}
+\toprule
+\textbf{ord} & \textbf{MSE (dB)} & $\xi_{\min}$ \textbf{(dB)} & $t_c$ & \textbf{Erro coef. (dB)} & $M_{\text{exp}}$ \\
+\midrule
+$3$  & $8{,}91$   & $9{,}07$   & ---    & $-1{,}8$  & $\approx 0$ \\
+$7$  & $6{,}01$   & $6{,}06$   & ---    & $-4{,}8$  & $\approx 0$ \\
+$11$ & $-26{,}70$ & $-30{,}00$ & $1369$ & $-49{,}8$ & $1{,}14$ \\
+$15$ & $-26{,}67$ & $-30{,}00$ & $1828$ & $-48{,}4$ & $1{,}15$ \\
+$23$ & $-26{,}68$ & $-30{,}00$ & $2684$ & $-51{,}2$ & $1{,}15$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{itemize}\itemsep0pt
+  \item \textbf{Passo.} O $\mu_{\max}$ desse algoritmo é $\sim\!25$ vezes menor que o
+        do LMS, e como o tamanho do passo não depende de $|e|$, a convergência é lenta
+        e quase linear: o MSE fica perto do valor inicial por centenas de amostras e só
+        então cai bruscamente. $t_c$ é proporcional a $1/\mu$ ($709 \to 6568$) e com
+        $\mu_{\max}/20$ o filtro não chega a convergir em $10000$ amostras (a resposta
+        em frequência ainda está abaixo da do sistema). O desajuste experimental fica
+        sistematicamente acima da eq.~(4.28), como no comentário do próprio
+        \emph{script} ($M_t=0{,}785$, $M_{\text{exp}}=1{,}27$).
+  \item \textbf{Ordem.} Igual ao LMS: identifica para $\text{ord}\ge11$, a ordem maior
+        só atrasa. Com ordem insuficiente o MSE fica praticamente sobre $\xi_{\min}$
+        (desvios de $\pm\SI{4}{\percent}$, da ordem da incerteza da estimativa): como o
+        erro não modelado é grande, o $\mu_{\max}$ calculado com $\sigma_n^2$ é pequeno
+        demais para gerar desajuste.
+\end{itemize}
+
+\subsection{NLMS}\label{sec:nlms}
+
+$\mathbf{w}(k+1) = \mathbf{w}(k) + \dfrac{\mu}{\epsilon + \|\mathbf{x}(k)\|^2}\,
+e(k)\,\mathbf{x}(k)$, estável para $0<\mu<2$; foi usado $\mu_{\max}=2$, sistema $H_B$,
+$N=3000$, $E=20$. Desajuste teórico para entrada branca: $M \approx \mu/(2-\mu)$.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{nlms_u.jpg}
+\caption{NLMS, $\text{ord}=11$, variando $\mu$.}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\caption{NLMS, $\text{ord}=11$, variando $\mu$.}
+\begin{tabular}{lrrrcc}
+\toprule
+$\mu$ & \textbf{MSE (dB)} & $t_c$ & \textbf{Erro coef. (dB)} & $M_{\text{exp}}$ & $M_t$ \\
+\midrule
+$\mu_{\max}=2$       & $11{,}29$  & ---   & $-14{,}4$ & $\gg1$    & $\infty$ \\
+$\mu_{\max}/2 = 1$   & $-26{,}77$ & $70$  & $-57{,}0$ & $1{,}11$  & $1{,}00$ \\
+$\mu_{\max}/5$       & $-28{,}94$ & $165$ & $-61{,}0$ & $0{,}276$ & $0{,}250$ \\
+$\mu_{\max}/10$      & $-29{,}51$ & $301$ & $-63{,}8$ & $0{,}120$ & $0{,}111$ \\
+$\mu_{\max}/20$      & $-29{,}77$ & $589$ & $-67{,}5$ & $0{,}053$ & $0{,}053$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{nlms_ord.jpg}
+\caption{NLMS, $\mu = 1$, variando a ordem.}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\caption{NLMS, $\mu = 1$, variando a ordem.}
+\begin{tabular}{lrrrrc}
+\toprule
+\textbf{ord} & \textbf{MSE (dB)} & $\xi_{\min}$ \textbf{(dB)} & $t_c$ & \textbf{Erro coef. (dB)} & $M_{\text{exp}}$ \\
+\midrule
+$3$  & $13{,}33$  & $9{,}07$   & ---   & $-1{,}6$  & $1{,}67$ \\
+$7$  & $9{,}38$   & $6{,}06$   & ---   & $-4{,}7$  & $1{,}15$ \\
+$11$ & $-26{,}77$ & $-30{,}00$ & $70$  & $-57{,}0$ & $1{,}11$ \\
+$15$ & $-26{,}79$ & $-30{,}00$ & $97$  & $-55{,}6$ & $1{,}10$ \\
+$23$ & $-26{,}87$ & $-30{,}00$ & $153$ & $-53{,}3$ & $1{,}06$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{itemize}\itemsep0pt
+  \item Com entrada branca e de potência constante, $\|\mathbf{x}\|^2 \approx
+        (\text{ord}+1)\sigma_x^2$, e o NLMS se comporta como um LMS com
+        $\mu_{\text{LMS}} = \mu/(2\,\text{tr}(\mathbf{R}))$. Por isso a tabela é quase igual
+        à do LMS: mesmo compromisso velocidade $\times$ desajuste, e $M_{\text{exp}}$
+        segue $\mu/(2-\mu)$. A vantagem do NLMS (independência da potência do sinal,
+        convergência melhor com entrada colorida) não aparece nesse cenário.
+  \item No limite $\mu=2$ o filtro não diverge, mas também não converge: o MSE fica em
+        $11$\,dB e a resposta em frequência é só uma aproximação grosseira.
+  \item Ordem: mesmas conclusões do LMS.
+\end{itemize}
+
+\section{RLS (\texttt{rls.m})}
+
+Sistema $H_B$, $N=2000$, $E=10$, $\mathbf{S}_D(0)=\delta\mathbf{I}$ com
+$\delta = 1/\sigma_x^2$. O \emph{script} calcula o erro \emph{a posteriori} (depois de
+atualizar $\mathbf{w}$), que fica abaixo do nível de ruído e não é comparável ao dos
+outros algoritmos; aqui foi usado o erro \emph{a priori}, como nos LMS. Desajuste teórico:
+$M = (\text{ord}+1)(1-\lambda)/(1+\lambda)$.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{rls_lambda.jpg}
+\caption{RLS, $\text{ord}=11$, variando $\lambda$.}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\caption{RLS, $\text{ord}=11$, variando $\lambda$.}
+\begin{tabular}{lrrrcc}
+\toprule
+$\lambda$ & \textbf{MSE (dB)} & $t_c$ & \textbf{Erro coef. (dB)} & $M_{\text{exp}}$ & $M_t$ \\
+\midrule
+$0{,}5$  & $-21{,}81$ & $18$  & $-45{,}8$ & $5{,}59$  & $4{,}00$ \\
+$0{,}8$  & $-25{,}78$ & $19$  & $-51{,}0$ & $1{,}64$  & $1{,}33$ \\
+$0{,}97$ & $-29{,}18$ & $46$  & $-57{,}9$ & $0{,}209$ & $0{,}183$ \\
+$1$      & $-29{,}91$ & $159$ & $-64{,}7$ & $0{,}020$ & $\to 0$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{rls_ord.jpg}
+\caption{RLS, $\lambda = 1$, variando a ordem.}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\caption{RLS, $\lambda = 1$, variando a ordem.}
+\begin{tabular}{lrrrrc}
+\toprule
+\textbf{ord} & \textbf{MSE (dB)} & $\xi_{\min}$ \textbf{(dB)} & $t_c$ & \textbf{Erro coef. (dB)} & $M_{\text{exp}}$ \\
+\midrule
+$3$  & $9{,}36$   & $9{,}07$   & ---   & $-1{,}8$  & $0{,}068$ \\
+$7$  & $6{,}25$   & $6{,}06$   & ---   & $-4{,}8$  & $0{,}045$ \\
+$11$ & $-29{,}91$ & $-30{,}00$ & $159$ & $-64{,}7$ & $0{,}020$ \\
+$15$ & $-29{,}90$ & $-30{,}00$ & $161$ & $-64{,}3$ & $0{,}023$ \\
+$23$ & $-29{,}88$ & $-30{,}00$ & $165$ & $-64{,}0$ & $0{,}027$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{itemize}\itemsep0pt
+  \item \textbf{Fator de esquecimento.} $\lambda$ define uma memória efetiva de
+        $1/(1-\lambda)$ amostras. Com $\lambda=0{,}5$ ela é de 2 amostras para estimar
+        12 coeficientes: o filtro converge rápido ($18$ amostras) mas o MSE fica
+        $8$\,dB acima do ruído. Aumentar $\lambda$ alonga a memória e reduz o desajuste
+        até $\lambda=1$, que é a solução de mínimos quadrados sobre todo o histórico e
+        chega praticamente ao nível de ruído ($M_{\text{exp}}=0{,}02$). Os três valores
+        pedidos identificam o sistema; o que muda é a precisão. $\lambda<1$ só se
+        justifica se o sistema variasse no tempo, o que não é o caso aqui.
+  \item \textbf{Ordem.} Também identifica a partir de $\text{ord}=11$, e diferente do LMS
+        a ordem maior quase não afeta nem o tempo nem o MSE. Com ordem insuficiente o
+        RLS fica sobre $\xi_{\min}$: ele converge para a solução de Wiener do filtro
+        truncado, sem o desajuste grande do LMS.
+  \item \textbf{Inicialização.} As $159$ amostras para $\lambda=1$ ficam bem acima das
+        $\sim\!2(\text{ord}+1)$ esperadas para o RLS. A causa é $\delta=1/\sigma_x^2$:
+        $\mathbf{S}_D(0)=\delta\mathbf{I}$ equivale a uma estimativa inicial
+        $\mathbf{R}(0)=\mathbf{I}/\delta$, cujo viés só decai como $1/k$. Com
+        $\delta=100$ (prior fraco) o mesmo filtro converge em $18$ amostras
+        (Figura~\ref{fig:delta}).
+\end{itemize}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.6\textwidth]{rls_delta.jpg}
+\caption{RLS, $\lambda=1$, $\text{ord}=11$: inicialização do \emph{script}
+($\delta=1/\sigma_x^2$, $t_c=124$) e $\delta=100$ ($t_c=18$), primeiras 400 amostras.}
+\label{fig:delta}
+\end{figure}
+
+\section{Comparação}
+
+Os quatro algoritmos foram executados no mesmo sistema ($H_B$), com $\text{ord}=11$,
+$N=10000$, $E=10$ e o parâmetro padrão de cada \emph{script}.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{compare.jpg}
+\caption{Comparação dos algoritmos no mesmo sistema.}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\caption{Comparação, $\text{ord}=11$, sistema $H_B$.}
+\begin{tabular}{lrrr}
+\toprule
+\textbf{Algoritmo} & \textbf{MSE (dB)} & $t_c$ & \textbf{Erro coef. (dB)} \\
+\midrule
+LMS, $\mu_{\max}/2$                & $-26{,}93$ & $74$   & $-49{,}8$ \\
+\emph{Sign-error} (\texttt{nlms.m}), $\mu_{\max}/2$ & $-26{,}70$ & $1369$ & $-49{,}8$ \\
+NLMS, $\mu=1$                      & $-26{,}97$ & $71$   & $-50{,}3$ \\
+RLS, $\lambda=1$                   & $-30{,}02$ & $162$  & $-76{,}4$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{itemize}\itemsep0pt
+  \item \textbf{Menor ordem.} Todos identificam o sistema a partir de
+        $\text{ord}=11$ e nenhum com menos. A ordem mínima é uma propriedade do sistema
+        (12 coeficientes), não do algoritmo; abaixo dela todos ficam limitados por
+        $\xi_{\min}$, e o RLS e o \emph{sign-error} chegam mais perto desse limite.
+  \item \textbf{Tempo de convergência.} Com os parâmetros padrão, LMS e NLMS convergem em
+        $\sim\!70$ amostras e o \emph{sign-error} em $\sim\!1400$, quase 20 vezes mais
+        lento. O RLS com $\lambda=1$ leva $\sim\!160$ só por causa da inicialização do
+        \emph{script}; com $\delta$ grande, ou com $\lambda<1$, converge em
+        $\sim\!18$ amostras, o mais rápido de todos.
+  \item \textbf{MSE mínimo.} O RLS com $\lambda=1$ é o único que chega ao nível de ruído
+        ($-30{,}0$\,dB, desajuste $\approx 0$) e tem o menor erro de coeficientes por uma
+        margem grande ($-76$\,dB contra $-50$\,dB). Os LMS ficam $\sim\!3$\,dB acima do
+        ruído com $\mu_{\max}/2$; podem chegar a $-29{,}8$\,dB com $\mu_{\max}/20$, mas
+        aí levam $\sim\!550$ amostras.
+\end{itemize}
+
+\section{Conclusões}
+
+O RLS teve o melhor desempenho na identificação: o menor MSE, os coeficientes mais
+precisos e, com inicialização adequada, a convergência mais rápida, e sem o compromisso
+velocidade $\times$ desajuste que limita os LMS. O custo é computacional: $O(L^2)$
+operações por amostra e uma matriz $L\times L$, contra $O(L)$ do LMS. Entre os LMS, LMS
+e NLMS foram equivalentes com entrada branca, e o \emph{sign-error} do \texttt{nlms.m}
+foi o mais lento, em troca de não precisar de multiplicação pelo erro. Em todos os
+algoritmos o passo (ou $\lambda$) controla o compromisso entre velocidade e precisão, e
+a ordem só precisa ser suficiente para representar o sistema: ordem a mais custa tempo
+de convergência no LMS e quase nada no RLS, e ordem a menos impede a identificação em
+todos eles.
+
+\section*{Script (Octave)}
+
+\lstinputlisting[caption={\texttt{main.m}}]{main.m}
+
+\end{document}
