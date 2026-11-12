@@ -2,3 +2,5 @@
 data/raw/
 data/chars/
 data/display/
+runs/
+*.pt
