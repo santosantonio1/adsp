@@ -4,3 +4,4 @@ data/chars/
 data/display/
 runs/
 *.pt
+**/__pycache__
