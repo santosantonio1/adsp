@@ -35,6 +35,9 @@ TASKS = {
             # '+' is not used by multimeters
             "mba_7seg": {**{d: d for d in DIGITS}, ".": ".", "-": "-"},
             "reynier_7seg": {**{d: d for d in DIGITS}, "dot": "."},
+            # digital-scale and energy-meter LCDs: many labeled '.' and '1'
+            "planeat_scale": {**{d: d for d in DIGITS}, ".": ".", "-": "-"},
+            "avyan_meter": {**{d: d for d in DIGITS}, ".": "."},
         },
     },
     "display": {

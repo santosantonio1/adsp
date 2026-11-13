@@ -17,6 +17,8 @@ DATASETS = {
     "multimeter_digits": ("taechin-dmqb3", "multimeter-digits-4ougn", 1),
     "mba_7seg": ("mba", "seven-segments-display-digits", 2),
     "reynier_7seg": ("reynier-rodriguez-socarras-wqs34", "seven-segment-digits-5hkzn", 1),
+    "planeat_scale": ("planeat-digital-scale", "7segmentrecognition", 13),
+    "avyan_meter": ("avyan", "meter-digits", 2),
     # display / reading region
     "digits_multimeter": ("jeison-colmenares", "digits-multimeter", 7),
     "sevenseg_roi": ("sevensegment-digits", "seven-segment-digits", 6),
